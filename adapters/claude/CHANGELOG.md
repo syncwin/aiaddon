@@ -2,6 +2,18 @@
 
 Newest first.
 
+## 0.4.0: Validator and tool feedback fixes
+
+**Added**
+- A core router can list skills from other plugins in a `## Module routes` table (same columns as the Routing table). Those rows are checked for a well-formed `<plugin>-<skill>` or `<plugin>:<skill>` slug, not against this plugin's own skills (P024).
+- P023 (a skill name ending in a role noun) is a warning instead of an error for names listed in `.public-safety-allow` as `P023:<path-glob>:<name>`, so names that existed before the rule keep passing.
+
+**Fixed**
+- The packager finds `validate_extension.py` next to its own tools folder first, so it no longer reports "validator not found".
+- `bump_version.py` updates the README `**Version**` line whatever its old value.
+- X008 no longer flags business email addresses inside `.public-safety-allow` itself; key and other rules still apply there.
+- The P028 message (a router with no routing table) names the file, the `## Routing table` heading, the header row, and that each Skill cell must be an exact skill slug.
+
 ## 0.3.0: Single-branch layout
 
 **Changed**

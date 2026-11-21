@@ -147,8 +147,9 @@ def main(argv):
         except (OSError, zipfile.BadZipFile): reused = False
     if not reused:
         if not skip:
-            v = here.parents[1] / "aiaddon-review" / "scripts" / "validate_extension.py"
-            if v.exists():
+            v = next((c for c in (Path(__file__).resolve().parent.parent.parent / "aiaddon-review" / "scripts" / "validate_extension.py",
+                                  here.parents[1] / "aiaddon-review" / "scripts" / "validate_extension.py") if c.is_file()), None)
+            if v:
                 vt = "cowork" if fmt == "plugin" and target == "all" else target
                 r = subprocess.run([sys.executable, str(v), str(root), "--target", vt], capture_output=True, text=True)
                 if r.returncode != 0: print(r.stdout); print("Validation failed: fix errors or pass --skip-validate."); return 1

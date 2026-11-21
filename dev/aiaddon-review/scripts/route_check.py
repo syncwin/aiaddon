@@ -12,9 +12,10 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 
-def parse_table(text):
-    """[(order, [phrases], slug, [then slugs])] from the Routing table section; None when there is no such section."""
-    m = re.search(r"^#{2,4}[^\n]*Routing table[^\n]*\n(.*?)(?=^#{1,4} |\Z)", text, re.M | re.S | re.I)
+def parse_table(text, heading="Routing table", raw=False):
+    """[(order, [phrases], slug, [then slugs])] from the Routing table section (or another heading, e.g. "Module routes"); None when there is no such section.
+    Slugs lose a `plugin:` prefix unless raw=True."""
+    m = re.search(r"^#{2,4}[^\n]*" + re.escape(heading) + r"[^\n]*\n(.*?)(?=^#{1,4} |\Z)", text, re.M | re.S | re.I)
     if not m: return None
     rows = []
     for line in m.group(1).splitlines():
@@ -23,7 +24,7 @@ def parse_table(text):
         slugs = re.findall(r"`([^`]+)`", cells[2])
         if not slugs: continue
         then = re.findall(r"`([^`]+)`", cells[3]) if len(cells) > 3 else []
-        rows.append((cells[0], [p.strip().lower().replace("’", "'") for p in cells[1].split(";") if p.strip()], slugs[0].split(":")[-1], [s.split(":")[-1] for s in then]))
+        rows.append((cells[0], [p.strip().lower().replace("’", "'") for p in cells[1].split(";") if p.strip()], slugs[0] if raw else slugs[0].split(":")[-1], then if raw else [s.split(":")[-1] for s in then]))
     return rows
 
 def route(rows, prompt):

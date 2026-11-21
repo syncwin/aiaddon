@@ -423,6 +423,37 @@ with tempfile.TemporaryDirectory() as td:
     r = RUN(nz / "aiaddon-package/scripts/build_skill_zips.py", p, "--out", td / "nz-out")
     check("build_skill_zips refuses and removes the zip when the scanner is missing", r.returncode == 1 and "REFUSED" in r.stdout and not list((td / "nz-out").glob("*.zip")), r.stdout[-300:])
 
+    # --- feedback 2026-11-21: packager validator lookup, README version regex, P023/X008 allow entries, P028 message, Module routes
+    q = td / "fb-pk"; shutil.copytree(p, q)
+    r = RUN(S / "aiaddon-package/scripts/package_extension.py", q, "--format", "zip", "--out", td / "fb-pk-out")
+    check("packager reports the validator ran (found beside its own file)", r.returncode == 0 and "| Validation | passed" in r.stdout and "not run" not in r.stdout, r.stdout[-300:])
+    q = td / "fb-bv"; shutil.copytree(p, q); rd = q / "README.md"
+    rd.write_text(re.sub(r"\*\*Version\*\*[ ]+\S+", "**Version** 0.0.9 (beta)", rd.read_text(encoding="utf-8"), count=1) if "**Version**" in rd.read_text(encoding="utf-8") else "**Version** 0.0.9 (beta)\n" + rd.read_text(encoding="utf-8"), encoding="utf-8")
+    r = RUN(BV, q, "--summary", "Fixed: readme version")
+    check("bump_version rewrites a README version that differs from plugin.json", r.returncode == 0 and "**Version** 0.0.2 (beta)" in rd.read_text(encoding="utf-8") and "0.0.9" not in rd.read_text(encoding="utf-8").split("\n\n")[0], rd.read_text(encoding="utf-8")[:200])
+    q = td / "fb-p23"; shutil.copytree(p, q); mk(q, "skills/ab-demo-reviewer/SKILL.md", skill_md("ab-demo-reviewer"))
+    rt = q / "skills/ab-demo/SKILL.md"; rt.write_text(rt.read_text(encoding="utf-8").replace("| 1 | build; build this | `ab-demo-build` | (none) |", "| 1 | build; build this | `ab-demo-build` | (none) |\n| 2 | review it | `ab-demo-reviewer` | (none) |"), encoding="utf-8")
+    r = RUN(V, q); check("P023 is an error for a role-noun name that is not listed", r.returncode == 1 and "`P023`" in r.stdout, r.stdout[-300:])
+    (q / ".public-safety-allow").write_text("P023:*:ab-demo-reviewer\n", encoding="utf-8")
+    r = RUN(V, q, "--json"); check("P023 drops to a warning for a name in .public-safety-allow", '"P023"' in r.stdout and not re.search(r'"P023"[^}]*"error"|"error"[^}]*"P023"', r.stdout), r.stdout[-400:])
+    mk(q, "skills/ab-demo-planner/SKILL.md", skill_md("ab-demo-planner"))
+    r = RUN(V, q); check("P023 stays an error for a new role-noun name not in the allow file", r.returncode == 1 and "ab-demo-planner" in r.stdout and "`P023`" in r.stdout, r.stdout[-300:])
+    em = "jane.doe" + "@" + "acmecorp-biz.com"; q = td / "fb-x8"; shutil.copytree(p, q); mk(q, "docs/contact.md", f"write to {em}\n")
+    r = RUN(V, q); check("X008 reports a business e-mail without an allow entry", r.returncode == 1 and "X008" in r.stdout and "e-mail" in r.stdout, r.stdout[-300:])
+    (q / ".public-safety-allow").write_text(f"email:docs/contact.md:{em}\n", encoding="utf-8")
+    r = RUN(V, q); check("X008 skips an e-mail listed in .public-safety-allow", "e-mail" not in r.stdout, r.stdout[-300:])
+    q = td / "fb-p28"; shutil.copytree(p, q); rt = q / "skills/ab-demo/SKILL.md"; rt.write_text(rt.read_text(encoding="utf-8").replace("## Routing table", "## Notes"), encoding="utf-8")
+    r = RUN(V, q); check("P028 message names the heading, the columns and the exact-slug rule", "## Routing table" in r.stdout and "| Order | Trigger phrases | Skill | Then |" in r.stdout and "exact skill slug" in r.stdout, r.stdout[-400:])
+    foreign = "| 9 | sync devices | `other-sync` | (none) |"
+    q = td / "fb-mod"; shutil.copytree(p, q); rt = q / "skills/ab-demo/SKILL.md"
+    rt.write_text(rt.read_text(encoding="utf-8").replace("**Tie-break rules:**", "## Module routes\n\n| Order | Trigger phrases | Skill | Then |\n|---|---|---|---|\n" + foreign + "\n\n**Tie-break rules:**", 1), encoding="utf-8")
+    r = RUN(V, q); check("a foreign skill under Module routes passes", r.returncode == 0 and "P024" not in r.stdout, r.stdout[-300:])
+    q2 = td / "fb-mod-bad"; shutil.copytree(p, q2); rt = q2 / "skills/ab-demo/SKILL.md"
+    rt.write_text(rt.read_text(encoding="utf-8").replace("| 1 | build; build this | `ab-demo-build` | (none) |", "| 1 | build; build this | `ab-demo-build` | (none) |\n" + foreign, 1), encoding="utf-8")
+    r = RUN(V, q2); check("the same foreign skill in the main Routing table still fails (P024)", r.returncode == 1 and "P024" in r.stdout, r.stdout[-300:])
+    q3 = td / "fb-mod-mal"; shutil.copytree(q, q3); rt = q3 / "skills/ab-demo/SKILL.md"; rt.write_text(rt.read_text(encoding="utf-8").replace("`other-sync`", "`Sync`"), encoding="utf-8")
+    r = RUN(V, q3); check("a malformed Module routes slug fails (P024)", r.returncode == 1 and "P024" in r.stdout and "malformed" in r.stdout, r.stdout[-300:])
+
 failed = [n for n, ok in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

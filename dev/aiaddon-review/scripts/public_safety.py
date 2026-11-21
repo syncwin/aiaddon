@@ -234,7 +234,8 @@ def scan_tree(root, rules, include_artifacts=True):
         if f.suffix in (".zip", ".plugin") and include_artifacts:
             yield from scan_zip_bytes(data, rel, rules); continue
         if not is_text(data): continue
-        yield from scan_text(rel, data.decode("utf-8-sig", "replace"), rules)
+        # the allowlist file names the addresses it allows, so e-mail findings inside it are skipped (keys and other rules still apply)
+        yield from scan_text(rel, data.decode("utf-8-sig", "replace"), rules + [("email", ALLOW_FILE, "")] if f.name == ALLOW_FILE else rules)
 
 def scan_zip_bytes(data, label, rules, depth=0):
     try: zf = zipfile.ZipFile(io.BytesIO(data))

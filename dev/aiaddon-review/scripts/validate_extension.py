@@ -679,6 +679,8 @@ def role_noun(slug):
     if len(last) >= 6 and ROLE_NOUN.search(last) and last not in ROLE_NOUN_OK: return last
     return ""
 
+MODULE_SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)+$|^[a-z0-9][a-z0-9-]*:[a-z0-9][a-z0-9-]*$")  # `<plugin>-<skill>` or `<plugin>:<skill>`
+
 def check_router(root, name, sdirs):
     """P024 routed slug is not a real skill, P025 skill unreachable from the router table, P026 router lacks the routing standard,
     P027 router eval case routes wrong, P028 router evals or table missing."""
@@ -688,13 +690,16 @@ def check_router(root, name, sdirs):
     text = read(rp) or ""
     rows = rcheck.parse_table(text) if rcheck else None
     if rows is None:
-        add("error", "P028", rp, "router has no routing table: add a 'Routing table' section with `| Order | Trigger phrases | Skill | Then |` mapping phrases to exact skill slugs"); return
+        add("error", "P028", rp, f"router has no routing table: in {rp.relative_to(root).as_posix()} add a '## Routing table' heading followed by a table with the header row `| Order | Trigger phrases | Skill | Then |`; each Skill cell must be an exact skill slug in backticks"); return
     real = {d.name for d in sdirs}
     reach = set()
     for _, _, slug, then in rows:
         for s in [slug] + then:
             if s not in real: add("error", "P024", rp, f"routing table names '{s}', which is not a skills/ folder")
             else: reach.add(s)
+    for _, phrases, slug, then in (rcheck.parse_table(text, "Module routes", raw=True) or []):  # other plugins' skills: shape only, not checked against this plugin's skills/
+        if not phrases or not MODULE_SLUG.match(slug) or not all(MODULE_SLUG.match(s) for s in then):
+            add("error", "P024", rp, f"Module routes row '{slug}' is malformed: it needs trigger phrases and a skill slug like `<plugin>-<skill>` or `<plugin>:<skill>`")
     for d in sorted(real - {name} - reach): add("error", "P025", root / "skills" / d / "SKILL.md", f"'{d}' is not reachable from the router table: add a row (or a Then entry) for it")
     low = text.lower()
     for need, label in (("skill tool", "load the chosen skill with the Skill tool using the full slug <plugin>:<skill>"), ("relative", "fallback: read the skill's SKILL.md by relative path when there is no Skill tool"),
@@ -725,11 +730,14 @@ def check_naming(root, name, sdirs):
     cmds = sorted(cm.rglob("*.md")) if cm.is_dir() else []
     for f in cmds:
         if not f.stem.startswith(pre) and f.stem != name: add("error", "P022", f, f"command '{f.stem}' must be prefixed '{pre}'")
+    naming_rules = psafe.load_allowlist_for(root) if psafe else []
     seen = [(d.name, d / "SKILL.md") for d in sdirs] + [(f.stem, f) for f in agents] + [(f.stem, f) for f in cmds]
     for n, w in seen:
         if n == name: continue
         rn = role_noun(n[len(pre):] if n.startswith(pre) else n)
-        if rn: add("error", "P023", w, f"'{n}' ends in the role noun '{rn}': name it for the action (-review, not -reviewer; -plan, not -planner)")
+        if rn and psafe and psafe.allowed_text(naming_rules, "P023", w.relative_to(root).as_posix(), n, ""):  # listed in .public-safety-allow as `P023:<path-glob>:<name>`
+            add("warn", "P023", w, f"'{n}' ends in the role noun '{rn}' (allowed by .public-safety-allow; new names must use the action style)")
+        elif rn: add("error", "P023", w, f"'{n}' ends in the role noun '{rn}': name it for the action (-review, not -reviewer; -plan, not -planner)")
 
 ENV_USE = re.compile("|".join(ENV_READ.pattern.split("|")[:3] + [r"\$\{(?!CLAUDE_|user_config)[A-Z][A-Z0-9_]*\}"]))
 
