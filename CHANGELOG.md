@@ -2,6 +2,11 @@
 
 Newest first.
 
+## 0.4.1: Agent factory workflow
+
+**Added**
+- Agent factory workflow reference (issue and acceptance criteria first, tests first, own worktree and branch, CI with bounded retries, merge gate checklist, human review on every PR, optional holdout cases, start small), with pointer lines in the plan, maintain and review skills.
+
 ## 0.4.0: Validator and tool feedback fixes
 
 **Added**
