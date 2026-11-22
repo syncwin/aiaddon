@@ -70,10 +70,14 @@ with tempfile.TemporaryDirectory() as td:
         return q
     # E10: /root/.claude in a shell command is an error; the packager refuses; a working-folder copy passes
     q = mk("e10-bad", {}); skm = sorted(q.glob("skills/*/SKILL.md"))[0]; skm.write_text(skm.read_text() + "\n```bash\npython /root/.claude/plugins/x/scripts/run.py\n```\n")
-    r = RUN(V, q); check("E10 flags /root/.claude in a shell command", r.returncode == 1 and "R001" in r.stdout, r.stdout[-300:])
-    r = RUN(S / "aiaddon-package/scripts/package_extension.py", q, "--format", "zip", "--skip-validate", "--out", td / "o-e10"); check("E10 packager refuses while R001 exists", r.returncode == 1 and "R001" in r.stdout, r.stdout[-300:])
+    r = RUN(V, q); check("E10 flags /root/.claude in a shell command", r.returncode == 1 and "X014" in r.stdout, r.stdout[-300:])
+    r = RUN(S / "aiaddon-package/scripts/package_extension.py", q, "--format", "zip", "--skip-validate", "--out", td / "o-e10"); check("E10 packager refuses while X014 exists", r.returncode == 1 and "X014" in r.stdout, r.stdout[-300:])
     q = mk("e10-ok", {}); skm = sorted(q.glob("skills/*/SKILL.md"))[0]; skm.write_text(skm.read_text() + "\n```bash\ncp -r skills/x/scripts ./tools && python ./tools/run.py\n```\n")
-    r = RUN(V, q); check("E10 passes a working-folder copy", r.returncode == 0 and "R001" not in r.stdout, r.stdout[-300:])
+    r = RUN(V, q); check("E10 passes a working-folder copy", r.returncode == 0 and "X014" not in r.stdout, r.stdout[-300:])
+    q = mk("x014-home", {}); skm = sorted(q.glob("skills/*/SKILL.md"))[0]; skm.write_text(skm.read_text() + "\n```bash\ncp ~/" + ".claude/x/run.py ./tools/\n```\n")
+    r = RUN(V, q); check("X014 flags a home-folder Claude path in a shell command", r.returncode == 1 and "X014" in r.stdout, r.stdout[-300:])
+    q = mk("x014-ref", {}); skm = sorted(q.glob("skills/*/SKILL.md"))[0]; (skm.parent / "references").mkdir(exist_ok=True); (skm.parent / "references/run.md").write_text("# Run\n\n```bash\npython /" + "root/.claude/x/run.py\n```\n")
+    r = RUN(V, q); check("X014 scans references too", r.returncode == 1 and "X014" in r.stdout, r.stdout[-300:])
     # aiaddon-clean: inventory finds the duplicated paragraph; proof passes when the unique line survives and fails when it is lost
     CL = S / "aiaddon-clean/scripts"; fx = S.parent / "evals/clean-duplicate-plugin/fixture/dupe-helper"
     r = RUN("-B", CL / "inventory.py", fx, "--out", td / "inv.json")
@@ -368,6 +372,7 @@ with tempfile.TemporaryDirectory() as td:
     broken("script file in a directory plugin", "D018", lambda q: (q / "skills/ab-demo-build/run.py").write_text("print('x')\n"), D)
     broken("shebang in a text file", "D018", lambda q: ((q / "skills/ab-demo-build/references").mkdir(exist_ok=True), (q / "skills/ab-demo-build/references/sh.md").write_text("#!/bin/sh\necho x\n")), D)
     broken("NUL byte in a text file", "D018", lambda q: ((q / "skills/ab-demo-build/references").mkdir(exist_ok=True), (q / "skills/ab-demo-build/references/nul.md").write_bytes(b"ok" + bytes(1) + b"ok\n")), D)
+    broken("color key in agent frontmatter", "D020", lambda q: ((q / "agents").mkdir(exist_ok=True), (q / "agents/ab-demo-check.md").write_text("---\nname: ab-demo-check\ndescription: Checks demo output.\ncolor: blue\n---\nCheck it.\n")), D)
     broken("nested metadata map in skill frontmatter", "D019", lambda q: sk(q).write_text(sk(q).read_text().replace("\n---\n", "\nmetadata:\n  version: 1\n---\n", 1)), D)
     broken("list value in skill frontmatter", "D019", lambda q: sk(q).write_text(sk(q).read_text().replace("\n---\n", "\ntags: [a, b]\n---\n", 1)), D)
     def _quiet(label, mutate):
@@ -411,6 +416,14 @@ with tempfile.TemporaryDirectory() as td:
     if FX.exists():
         r = RUN(FX); check("public-safety fixtures: fake key fails, clean repo passes, history and zip scanned", r.returncode == 0, r.stdout[-400:])
 
+    # allowlist: a sha256 entry silences a history finding without the value ever being printed
+    hq = td / "hist-allow"; hq.mkdir(); G = lambda *a: subprocess.run(["git", "-C", str(hq), "-c", "core.hooksPath=" + str(td / "nohooks"), "-c", "user.name=t", "-c", "user.email=t@example.com", *a], capture_output=True, text=True)
+    G("init", "-q"); (hq / "n.md").write_text("token " + fake + "\n"); G("add", "."); G("commit", "-qm", "a"); (hq / "n.md").write_text("clean\n"); G("commit", "-qam", "b")
+    r = RUN(SS, hq, "--history"); mt = re.search(r"sha256:([0-9a-f]{12})", r.stdout)
+    check("history finding fails, masked, and prints a sha256 tag", r.returncode == 1 and fake not in r.stdout and bool(mt), r.stdout[-300:])
+    if mt:
+        (hq / ".public-safety-allow").write_text("*:n.md:sha256:" + mt.group(1)[:10] + "\n")
+        r = RUN(SS, hq, "--history"); check("a sha256 allow entry silences the history finding without printing the value", r.returncode == 0 and fake not in r.stdout, r.stdout[-300:])
     # --- scanner exemptions are for this plugin's own sources only; build_skill_zips never fails open
     q = td / "own"; mk(q, "skills/x/scripts/selftest.py", "TOKEN = '" + fake + "'\n"); mk(q, "skills/x/scripts/scan_secrets.py", "TOKEN = '" + fake + "'\n")
     r = RUN(SS, q); check("a user plugin's file named like a scanner source is still scanned", r.returncode == 1 and "selftest.py" in r.stdout and "scan_secrets.py" in r.stdout, r.stdout[-300:])

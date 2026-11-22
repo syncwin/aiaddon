@@ -130,7 +130,7 @@ def main(argv):
     vpath = Path(__file__).resolve().parents[2] / "aiaddon-review" / "scripts" / "validate_extension.py"
     if vpath.is_file():  # E10: never bypassed by --skip-validate
         rr = subprocess.run([sys.executable, str(vpath), str(root), "--json"], capture_output=True, text=True)
-        if '"R001"' in rr.stdout: print(rr.stdout); print("Refusing to package: R001 (a shell command names /root/.claude). Fix it; --skip-validate does not bypass this."); return 1
+        if '"X014"' in rr.stdout: print(rr.stdout); print("Refusing to package: X014 (a shell command names /root/.claude). Fix it; --skip-validate does not bypass this."); return 1
     scan = Path(__file__).resolve().parents[2] / "aiaddon-review" / "scripts" / "scan_secrets.py"
     def public_safety_scan(*targets):
         """Blocking secret and private-data scan (tree, history, produced packages). Never bypassed by --skip-validate."""

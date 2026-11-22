@@ -12,7 +12,7 @@ Replaces the former `package_extension.py`. Claude follows this recipe with buil
 - Step 3: stage the source
 - Step 4: companion prompt (always)
 - Step 5: behavior tests (evals) status
-- Step 6: R001 and the public-safety scan (never skipped)
+- Step 6: X014 and the public-safety scan (never skipped)
 - Step 7: reuse check (unless force)
 - Step 8: validation (when not reused)
 - Step 9: build the zip (when not reused)
@@ -31,7 +31,7 @@ Validate, name and zip a Claude extension (a plugin folder or a single skill fol
 | dir | folder | required | The plugin or skill folder |
 | format (`--format`) | `plugin` or `zip` | required | `plugin`: zip with the plugin root as the archive root, extension `.plugin` (Cowork). `zip`: zip with one top-level folder named after the skill or plugin `name` (not the source folder's name), extension `.zip`. |
 | out (`--out`) | folder | `./dist` | Where the package and its companions go |
-| skip validation (`--skip-validate`) | flag | off | Skip the validation run only. Never skips the R001 refusal or the secret scan. |
+| skip validation (`--skip-validate`) | flag | off | Skip the validation run only. Never skips the X014 refusal or the secret scan. |
 | target (`--target`) | name | `all` | Validation target. For format `plugin` with target `all`, validate for target `cowork`; otherwise use the target given. |
 | previous (`--previous`) | file or folder | newest other version of the same package in out | Package to diff against |
 | repo (`--repo`) | `owner/repo` | none | Passed to the install guide |
@@ -91,9 +91,9 @@ Read from the real source folder. Result is (ok, note):
 
 If require-evals is set and ok is no: stop with `Behavior tests: <note>. Run them, or package without --require-evals.`
 
-## Step 6: R001 and the public-safety scan (never skipped)
+## Step 6: X014 and the public-safety scan (never skipped)
 
-1. R001: run the aiaddon-review validation recipe on the working folder and look for rule `R001` (a shell command names `/root/.claude`). If the validation recipe is not available, Grep the working folder for `/root/.claude` in hook, command and MCP JSON/shell text. Found: stop with `Refusing to package: R001 (a shell command names /root/.claude). Fix it; --skip-validate does not bypass this.`
+1. X014: run the aiaddon-review validation recipe on the working folder and look for rule `X014` (a shell command names `/root/.claude`). If the validation recipe is not available, Grep the working folder for `/root/.claude` in hook, command and MCP JSON/shell text. Found: stop with `Refusing to package: X014 (a shell command names /root/.claude). Fix it; --skip-validate does not bypass this.`
 2. Secret and private-data scan: run the aiaddon-review public-safety scan recipe on the real source folder including its git history. If the recipe is not available, stop with `Refusing to package: the public-safety scan cannot run (the aiaddon-review secret scan is not available).` Any finding: show it and stop with `Refusing to package: the secret and private-data scan found something (blocking). Fix it, rotate any real credential first, then package again; --skip-validate does not bypass this.`
 
 ## Step 7: reuse check (unless force)

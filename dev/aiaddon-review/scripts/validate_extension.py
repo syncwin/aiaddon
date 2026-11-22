@@ -433,6 +433,11 @@ def check_directory_policy(root, m, regular):
         else:
             try: raw.decode("utf-8")
             except UnicodeDecodeError: add("error", "D018", rel, "not valid UTF-8 (LOCAL_CODE_FILE_TYPE)")
+    for p in regular:
+        if p.suffix.lower() == ".md" and p.relative_to(root).parts[0] == "agents":
+            afm, _ = parse_frontmatter(read(p) or "")
+            extra = sorted(set(afm) - {"name", "description", "model", "tools"})
+            if extra: add("error", "D020", p.relative_to(root), f"agent frontmatter key(s) {extra} are outside name, description, model, tools (LOCAL_CODE_FRONTMATTER_KEY): remove them (for example color)")
     fm_files = [p for p in regular if p.name == "SKILL.md" and p.relative_to(root).parts[0] == "skills"] + \
                [p for p in regular if p.suffix.lower() == ".md" and p.relative_to(root).parts[0] in DIR_FM_DIRS]
     for p in fm_files:
@@ -648,22 +653,23 @@ def check_supply_chain(root, m, name, target="all"):
             if not rx.fullmatch(f"mcp__plugin_{name}_{n}__any_tool"): add("warn", "X007", hf, f"guardrail matcher '{mt}' misses connector '{n}': its output is never screened")
 
 def check_script_paths(root):
-    """E10: shell commands or script invocations in SKILL.md/commands/agents/hooks must not name /root/.claude (error) or ~/.claude (warning)."""
+    """X014 (error): a shell command or script call in shipped text (SKILL.md, references, commands, agents, hooks) must not name a Claude config-folder path. The needles are built from parts so this file never matches its own rule."""
+    needles = ("/" + "root/." + "claude", "~/." + "claude")
     files = [p for p in root.rglob("SKILL.md") if ".git" not in p.parts and not p.is_symlink()]
-    for d in ("commands", "agents"):
-        if (root / d).is_dir(): files += [p for p in (root / d).rglob("*.md") if not p.is_symlink()]
-    for p in files:
+    files += [p for p in root.rglob("*.md") if not p.is_symlink() and p.name != "SKILL.md" and ".git" not in p.parts and ("references" in p.parts or p.relative_to(root).parts[0] in ("commands", "agents"))]
+    for p in dict.fromkeys(files):
         fenced = False
         for no, ln in enumerate((read(p) or "").splitlines(), 1):
             if ln.lstrip().startswith("```"): fenced = not fenced; continue
             code = ln if fenced else " ".join(re.findall(r"`([^`]+)`", ln))
             if not re.search(r"(^|[\s;&|(])(python3?|bash|sh|node|find|ls|cat|cp|mv|rm|cd|source|pip3?|npm|npx|chmod)\b", code): continue  # prose mention, not a command
-            if "/root/.claude" in code: add("error", "R001", p, f"line {no}: shell command names /root/.claude; copy scripts once per session into the working folder (./tools/) and run them from there")
-            elif "~/.claude" in code: add("warn", "R002", p, f"line {no}: shell command names ~/.claude; copy scripts into the working folder (./tools/) instead")
+            hit = next((n for n in needles if n in code), None)
+            if hit: add("error", "X014", p, f"line {no}: shell command names {hit}; copy scripts once into the working folder (./tools/) and run them from there")
     hj = root / "hooks" / "hooks.json"
     if hj.is_file():
         t = read(hj) or ""
-        if "/root/.claude" in t: add("error", "R001", hj, "hook command names /root/.claude; use ${CLAUDE_PLUGIN_ROOT} or a working-folder copy")
+        hit = next((n for n in needles if n in t), None)
+        if hit: add("error", "X014", hj, f"hook command names {hit}; use ${{CLAUDE_PLUGIN_ROOT}} or a working-folder copy")
 
 ROLE_NOUN = re.compile(r"(er|or|ist|ant|ian)$")
 ROLE_NOUN_OK = {"user", "order", "folder", "server", "cluster", "number", "layer", "filter", "other", "error", "parser", "buffer", "border",

@@ -119,9 +119,9 @@ Files: every `SKILL.md` (not under `.git`, not symlinks), all `commands/**/*.md`
 
 | # | ID | Sev | What to check | Pattern or threshold | Message |
 |---|---|---|---|---|---|
-| 134 | `R001` | error | the shell command names `/root/.claude` | substring in the code | `line <n>: shell command names /root/.claude; copy scripts once per session into the working folder (./tools/) and run them from there` |
-| 135 | `R002` | warn | the shell command names `~/.claude` (when row 134 did not fire) | substring in the code | `line <n>: shell command names ~/.claude; copy scripts into the working folder (./tools/) instead` |
-| 136 | `R001` | error | `hooks/hooks.json` text contains `/root/.claude` | substring | `hook command names /root/.claude; use ${CLAUDE_PLUGIN_ROOT} or a working-folder copy` |
+| 134 | `X014` | error | the shell command names `/root/.claude` or `~/.claude` (SKILL.md, references, commands, agents) | substring in the code | `line <n>: shell command names <path>; copy scripts once into the working folder (./tools/) and run them from there` |
+| 135 | `D020` | error | `--target directory`: an agent frontmatter key outside `name`, `description`, `model`, `tools` (for example `color`) | key set | `agent frontmatter key(s) [...] are outside name, description, model, tools (LOCAL_CODE_FRONTMATTER_KEY): remove them` |
+| 136 | `X014` | error | `hooks/hooks.json` text contains `/root/.claude` or `~/.claude` | substring | `hook command names /root/.claude; use ${CLAUDE_PLUGIN_ROOT} or a working-folder copy` |
 
 ### 5.16 Router standard (rows 137 to 142)
 

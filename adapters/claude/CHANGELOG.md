@@ -8,6 +8,11 @@ Newest first.
 - A core router can list skills from other plugins in a `## Module routes` table (same columns as the Routing table). Those rows are checked for a well-formed `<plugin>-<skill>` or `<plugin>:<skill>` slug, not against this plugin's own skills (P024).
 - P023 (a skill name ending in a role noun) is a warning instead of an error for names listed in `.public-safety-allow` as `P023:<path-glob>:<name>`, so names that existed before the rule keep passing.
 
+**Changed**
+- `X014` (error) replaces `R001`/`R002`: a `/root/.claude` or `~/.claude` path in a shell command in SKILL.md, references, commands, agents or hooks. The packager refuses to package while it exists. The rule text is built from parts so the validator never matches itself.
+- `D020` (directory target, error): agent frontmatter keys outside name, description, model, tools (for example `color`).
+- Review and maintain: restart Claude after installing a new plugin version. Build and maintain: versioning guidance (0.0.1 start, Keep a Changelog, 1.0.0 only on the owner's word) and a generated `AGENTS.md` model-routing default.
+
 **Fixed**
 - The packager finds `validate_extension.py` next to its own tools folder first, so it no longer reports "validator not found".
 - `bump_version.py` updates the README `**Version**` line whatever its old value.
