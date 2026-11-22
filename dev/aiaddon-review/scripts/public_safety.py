@@ -8,10 +8,11 @@ e-mail addresses, absolute user paths (Windows, macOS, Linux), internal hosts, a
 
 Allowlist file (default `.public-safety-allow` at the scanned root), one rule per line, `#` starts a comment:
     <rule>:<path-glob>[:<value-substring>]       e.g.  email:README.md:support@example.org
+    <rule>:<path-glob>:sha256:<hex prefix>       matches the SHA-256 of the unmasked finding value (>= 8 hex chars; reports show it as [sha256:...])
     <rule> is a rule id or `*`; <path-glob> uses * and ? against the repo-relative path with forward slashes.
 Only the exact false positives belong there; never a real credential (rotate that instead).
 """
-import fnmatch, math, re, subprocess, sys, zipfile, io
+import fnmatch, hashlib, math, re, subprocess, sys, zipfile, io
 from pathlib import Path
 
 sys.dont_write_bytecode = True
@@ -101,15 +102,19 @@ PRIVATE_DIRS = ("memory/", ".claude/memory/", ".claude/progress/", "logs/")
 def entropy(s):
     return -sum(c / len(s) * math.log2(c / len(s)) for c in (s.count(x) for x in set(s)))
 
+_RAW = [""]  # unmasked value of the last finding; used only to hash it, never printed
+
 def mask(v):
-    v = str(v)
+    v = str(v); _RAW[0] = v
     return v[:4] + "..." if len(v) > 8 else v[:2] + "..."
 
 def mask_email(local, domain):
+    _RAW[0] = local + "@" + domain
     return local[:2] + "***@" + domain
 
 def scan_line(line):
     """First finding on the line: (rule, label, masked) or None."""
+    _RAW[0] = ""
     for rule, label, rx in KEY_RULES:
         m = rx.search(line)
         if m: return rule, label, mask(m.group(0))
@@ -124,16 +129,16 @@ def scan_line(line):
         elif re.search(r"\d", v) and re.search(r"[A-Za-z]", v) and len(set(v)) > 8:
             return "key-assignment", "key-like value", g.group(1) + "=" + mask(v)
     for m in URL_CRED.finditer(line):
-        if not (URL_CRED_OK.match(m.group(1)) or URL_CRED_OK.match(m.group(2)) or PLACEHOLDER.search(m.group(2))): return "url-credentials", "credentials inside a URL", m.group(0).split("://")[0] + "://" + m.group(1)[:2] + "***:***@"
+        if not (URL_CRED_OK.match(m.group(1)) or URL_CRED_OK.match(m.group(2)) or PLACEHOLDER.search(m.group(2))): _RAW[0] = m.group(0); return "url-credentials", "credentials inside a URL", m.group(0).split("://")[0] + "://" + m.group(1)[:2] + "***:***@"
     for m in EMAIL.finditer(line):
         local, dom = m.group(1), m.group(2)
         if local.lower() in EMAIL_LOCAL_OK or EMAIL_DOMAIN_OK.search(dom) or EMAIL_NOREPLY.search(local) or dom.lower().endswith((".md", ".json", ".py", ".yml", ".yaml", ".txt", ".js")): continue
         return "email", "personal e-mail address", mask_email(local, dom)
     for rx in USER_PATH:
         for m in rx.finditer(line):
-            if not USER_OK.match(m.group(1)): return "user-path", "absolute local user path", m.group(0)[:3] + "..." + m.group(1)[:2] + "***"
+            if not USER_OK.match(m.group(1)): _RAW[0] = m.group(0); return "user-path", "absolute local user path", m.group(0)[:3] + "..." + m.group(1)[:2] + "***"
     for m in DRIVE_PATH.finditer(line):
-        if not DRIVE_OK.match(m.group(2).strip()): return "drive-path", "absolute local drive path", m.group(1) + ":\\..." + m.group(2)[:2] + "***"
+        if not DRIVE_OK.match(m.group(2).strip()): _RAW[0] = m.group(0); return "drive-path", "absolute local drive path", m.group(1) + ":\\..." + m.group(2)[:2] + "***"
     m = INTERNAL_HOST.search(line)
     if m: return "internal-host", "internal URL or host", mask(m.group(0))
     for m in TOKENISH.finditer(line):
@@ -190,15 +195,18 @@ def scan_text(rel, text, rules, where=""):
         f = scan_line(line)
         if not f: continue
         rule, label, masked = f
-        if allowed_text(rules, rule, rel, line, masked): continue
-        yield {"file": rel, "line": no, "rule": rule, "kind": label, "value": masked, "where": where}
+        sha = hashlib.sha256(_RAW[0].encode("utf-8", "replace")).hexdigest()[:12] if _RAW[0] else ""
+        if allowed_text(rules, rule, rel, line, masked, sha): continue
+        yield {"file": rel, "line": no, "rule": rule, "kind": label, "value": masked + " [sha256:" + sha + "]", "where": where}
 
-def allowed_text(rules, rule, rel, line, masked):
+def allowed_text(rules, rule, rel, line, masked, sha=""):
     rel = rel.replace("\\", "/")
     for r, g, v in rules:
         if r not in ("*", rule): continue
         if not (fnmatch.fnmatch(rel, g) or fnmatch.fnmatch(rel.rsplit("/", 1)[-1], g)): continue
-        if v and v not in line: continue
+        if v.startswith("sha256:"):
+            if not (sha and len(v) >= 15 and sha.startswith(v[7:].lower())): continue  # hash of the unmasked value, at least 8 hex characters
+        elif v and v not in line: continue
         return True
     return False
 
@@ -234,7 +242,8 @@ def scan_tree(root, rules, include_artifacts=True):
         if f.suffix in (".zip", ".plugin") and include_artifacts:
             yield from scan_zip_bytes(data, rel, rules); continue
         if not is_text(data): continue
-        yield from scan_text(rel, data.decode("utf-8-sig", "replace"), rules)
+        # the allowlist file names the addresses it allows, so e-mail findings inside it are skipped (keys and other rules still apply)
+        yield from scan_text(rel, data.decode("utf-8-sig", "replace"), rules + [("email", ALLOW_FILE, "")] if f.name == ALLOW_FILE else rules)
 
 def scan_zip_bytes(data, label, rules, depth=0):
     try: zf = zipfile.ZipFile(io.BytesIO(data))

@@ -119,9 +119,9 @@ Files: every `SKILL.md` (not under `.git`, not symlinks), all `commands/**/*.md`
 
 | # | ID | Sev | What to check | Pattern or threshold | Message |
 |---|---|---|---|---|---|
-| 134 | `R001` | error | the shell command names `/root/.claude` | substring in the code | `line <n>: shell command names /root/.claude; copy scripts once per session into the working folder (./tools/) and run them from there` |
-| 135 | `R002` | warn | the shell command names `~/.claude` (when row 134 did not fire) | substring in the code | `line <n>: shell command names ~/.claude; copy scripts into the working folder (./tools/) instead` |
-| 136 | `R001` | error | `hooks/hooks.json` text contains `/root/.claude` | substring | `hook command names /root/.claude; use ${CLAUDE_PLUGIN_ROOT} or a working-folder copy` |
+| 134 | `X014` | error | the shell command names `/root/.claude` or `~/.claude` (SKILL.md, references, commands, agents) | substring in the code | `line <n>: shell command names <path>; copy scripts once into the working folder (./tools/) and run them from there` |
+| 135 | `D020` | error | `--target directory`: an agent frontmatter key outside `name`, `description`, `model`, `tools` (for example `color`) | key set | `agent frontmatter key(s) [...] are outside name, description, model, tools (LOCAL_CODE_FRONTMATTER_KEY): remove them` |
+| 136 | `X014` | error | `hooks/hooks.json` text contains `/root/.claude` or `~/.claude` | substring | `hook command names /root/.claude; use ${CLAUDE_PLUGIN_ROOT} or a working-folder copy` |
 
 ### 5.16 Router standard (rows 137 to 142)
 
@@ -129,9 +129,11 @@ Only when there are 2 or more skills, a plugin name exists, and `skills/<name>/S
 
 Routing table parse: find a heading of level 2 to 4 containing `Routing table` (case-insensitive); the table is everything up to the next heading. Each row is `| Order | Trigger phrases | Skill | Then |`. Skip the header and separator rows. Phrases are separated by `;`, lowercased, with curly apostrophes made straight. The skill slug is the first code span in the Skill cell (text after the last `:` is the slug). The Then cell code spans are extra slugs. Rows without a code span in the Skill cell are ignored.
 
+Module routes: a core router that routes to skills of other plugins in the same marketplace lists those rows in a separate section headed `## Module routes` (same table shape, parsed the same way but with the slug kept as written). Those rows are not checked against this plugin's `skills/` folders (no `P024`/`P025`); each needs trigger phrases and a slug shaped `<plugin>-<skill>` or `<plugin>:<skill>` (lowercase letters, digits, hyphens), otherwise `P024` reports the row as malformed. The same row in the main Routing table still fails `P024`.
+
 | # | ID | Sev | What to check | Pattern or threshold | Message |
 |---|---|---|---|---|---|
-| 137 | `P028` | error | no routing table in the router | table not found (see `references/route-check.md`) | ``router has no routing table: add a 'Routing table' section with `\| Order \| Trigger phrases \| Skill \| Then \|` mapping phrases to exact skill slugs`` |
+| 137 | `P028` | error | no routing table in the router | table not found (see `references/route-check.md`) | ``router has no routing table: in skills/<router>/SKILL.md add a '## Routing table' heading followed by a table with the header row `\| Order \| Trigger phrases \| Skill \| Then \|`; each Skill cell must be an exact skill slug in backticks`` |
 | 138 | `P024` | error | a routed slug is not a skill folder | each slug in Skill and Then cells must be a folder under `skills/` | `routing table names '<slug>', which is not a skills/ folder` |
 | 139 | `P025` | error | a skill cannot be reached | every skill folder except the router must appear in some Skill or Then cell | `'<skill>' is not reachable from the router table: add a row (or a Then entry) for it` (path: that skill's SKILL.md) |
 | 140 | `P026` | error | the router lacks a standard phrase (case-insensitive text search of the router SKILL.md) | needed text: `skill tool`, `relative`, `closed question`, `never answer` | `router standard missing: <label>` with labels: for `skill tool` "load the chosen skill with the Skill tool using the full slug <plugin>:<skill>"; for `relative` "fallback: read the skill's SKILL.md by relative path when there is no Skill tool"; for `closed question` "a default: when no row matches, ask one closed question with options"; for `never answer` "never answer the task itself" |

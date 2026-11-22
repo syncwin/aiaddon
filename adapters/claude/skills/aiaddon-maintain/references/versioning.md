@@ -26,6 +26,8 @@ Propose a change when a reusable gap appears (missing, wrong, ambiguous, or cont
 - **Same session, same build:** add lines to the current changelog entry; don't bump per edit. New version only for a genuinely new iteration, a confirmed milestone, or an explicit request.
 - `CHANGELOG.md`: newest first; per version, Added / Changed / Fixed / Removed; each line says what and why. Never delete history. A deliberate backward or skipped number gets a note.
 - The plugin version moves when any skill changes (skills carry no `metadata.version`: frontmatter stays text only for the directory; a legacy one is moved with the plugin version if present) (plugin version pins users, so a changed plugin with an unchanged `version` is never delivered to existing installs).
+- **Start and pace:** every new app or plugin starts at `0.0.1` with a Keep a Changelog `CHANGELOG.md`; bump patch or minor through the beta; `1.0.0` only when the owner says so.
+- After an update is installed, tell the user to restart Claude (a session can keep the older cached skill text).
 - Repo-backed extensions the user keeps in sync: push the update, tag a version bump, and clean orphans (`aiaddon-package/references/github.md`).
 - Every update ships: edited files, changelog, the new version stated, a short what/why, revalidated and repackaged output (filename carries the version), the release diff (files kept, changed, added, dropped), scratchpad.
 - Recipes: `references/bump-version.md` writes the entry and moves every version field (manifest, its metadata, marketplace entry, every skill and agent, README) from one summary; `references/release-diff.md` counts the file changes.

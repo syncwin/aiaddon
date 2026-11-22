@@ -100,7 +100,7 @@ def main(argv):
         for p in mds: set_md_version(p, old, new, changes)
         rd = root / "README.md"
         if rd.exists():
-            t = rd.read_text(encoding="utf-8"); t2 = t.replace(f"**Version** {old}", f"**Version** {new}")
+            t = rd.read_text(encoding="utf-8"); t2 = re.sub(r"(\*\*Version\*\*[ ]+)\S+", lambda m: m.group(1) + new, t)
             if t2 != t: changes[rd] = t2
     cl = root / "CHANGELOG.md"
     changes[cl] = changelog(cl.read_text(encoding="utf-8") if cl.exists() else "", groups, new, opts["title"], level == "keep")

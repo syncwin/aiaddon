@@ -130,7 +130,7 @@ def main(argv):
     vpath = Path(__file__).resolve().parents[2] / "aiaddon-review" / "scripts" / "validate_extension.py"
     if vpath.is_file():  # E10: never bypassed by --skip-validate
         rr = subprocess.run([sys.executable, str(vpath), str(root), "--json"], capture_output=True, text=True)
-        if '"R001"' in rr.stdout: print(rr.stdout); print("Refusing to package: R001 (a shell command names /root/.claude). Fix it; --skip-validate does not bypass this."); return 1
+        if '"X014"' in rr.stdout: print(rr.stdout); print("Refusing to package: X014 (a shell command names /root/.claude). Fix it; --skip-validate does not bypass this."); return 1
     scan = Path(__file__).resolve().parents[2] / "aiaddon-review" / "scripts" / "scan_secrets.py"
     def public_safety_scan(*targets):
         """Blocking secret and private-data scan (tree, history, produced packages). Never bypassed by --skip-validate."""
@@ -147,8 +147,9 @@ def main(argv):
         except (OSError, zipfile.BadZipFile): reused = False
     if not reused:
         if not skip:
-            v = here.parents[1] / "aiaddon-review" / "scripts" / "validate_extension.py"
-            if v.exists():
+            v = next((c for c in (Path(__file__).resolve().parent.parent.parent / "aiaddon-review" / "scripts" / "validate_extension.py",
+                                  here.parents[1] / "aiaddon-review" / "scripts" / "validate_extension.py") if c.is_file()), None)
+            if v:
                 vt = "cowork" if fmt == "plugin" and target == "all" else target
                 r = subprocess.run([sys.executable, str(v), str(root), "--target", vt], capture_output=True, text=True)
                 if r.returncode != 0: print(r.stdout); print("Validation failed: fix errors or pass --skip-validate."); return 1

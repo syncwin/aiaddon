@@ -39,9 +39,9 @@ Part of the self-test recipe `selftest.md`; read its sections 1, 2 and 9 first (
 
 | # | Check name | Setup and mutation | PASS when |
 |---|---|---|---|
-| 23 | E10 flags /root/.claude in a shell command | Copy `F`; append to its first `SKILL.md` a fenced bash block holding `python /root/.claude/plugins/x/scripts/run.py`; `V` | verdict fail and `R001` |
-| 24 | E10 packager refuses while R001 exists | Package that copy as zip with `--skip-validate` | verdict fail (exit 1) and `R001` in the output |
-| 25 | E10 passes a working-folder copy | Copy `F`; append to its first `SKILL.md` a fenced bash block holding `cp -r skills/x/scripts ./tools && python ./tools/run.py`; `V` | verdict pass and no `R001` |
+| 23 | E10 flags /root/.claude in a shell command | Copy `F`; append to its first `SKILL.md` a fenced bash block holding a python call to a script under the root user's Claude config folder (plugins/x/scripts/run.py); `V` | verdict fail and `X014` |
+| 24 | E10 packager refuses while X014 exists | Package that copy as zip with `--skip-validate` | verdict fail (exit 1) and `X014` in the output |
+| 25 | E10 passes a working-folder copy | Copy `F`; append to its first `SKILL.md` a fenced bash block holding `cp -r skills/x/scripts ./tools && python ./tools/run.py`; `V` | verdict pass and no `X014` |
 | 26 | cleaner inventory finds the duplicated paragraph | Run cleaner `inventory` on `evals/clean-duplicate-plugin/fixture/dupe-helper` (`inventory.md`) | success and the total of exact duplicate paragraphs is 1 |
 | 27 | cleaner proof passes when the unique line survives | Copy that fixture to `cl-good`; in `skills/filing/SKILL.md` delete the paragraph line starting `Invoice details captured` and the blank line after it; run cleaner `prove` original vs `cl-good` (`prove.md`) | success and `PASS` |
 | 28 | cleaner proof fails when a unique line is lost | Copy `cl-good` to `cl-bad`; remove the line `Always ask for the invoice number before filing.`; `prove` original vs `cl-bad` | verdict fail, output contains `LOST` and `invoice number` |
