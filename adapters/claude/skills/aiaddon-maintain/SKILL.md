@@ -17,6 +17,7 @@ license: MIT
 4a. **Public safety before and after every change:** follow `aiaddon-review/references/scan-secrets.md` (with history) on `<dir>` first and again on the result; keep the `.gitignore` preset, `PUBLIC-SAFETY.md` and `.env.example` intact (`aiaddon-review/references/public-safety.md`). Names stay inside the naming standard (`aiaddon/references/standards.md` section 1); a renamed slug is confirmed with the user and gets a migration note in the README and changelog.
 4b. **Past leak remediation** (a secret or private value already in git, a package or a release; full steps in `aiaddon-review/references/public-safety.md` section 6), in this order: detect with the scan; tell the user; rotate or revoke the credential FIRST; rewrite history with `git filter-repo` (or BFG) on a backed-up mirror; force-push ONLY after the user's explicit OK for that exact push, never automatically; delete and re-create affected releases and tags and note forks; ask GitHub Support to purge cached views and PR refs; re-scan to prove zero traces.
 5. Not authored here (downloaded/third-party)? Disclose the fork consequences first (versioning.md).
+5a. **Changes built by an agent:** issue with acceptance criteria, tests first, own branch and PR, bounded CI retries, human review: `references/factory-workflow.md`.
 6. Re-validate with `aiaddon:aiaddon-review`, repackage with `aiaddon:aiaddon-package`.
 
 Finish with the scratchpad (`aiaddon/references/scratchpad.md`).

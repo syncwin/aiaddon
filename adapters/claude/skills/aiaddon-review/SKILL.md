@@ -23,6 +23,7 @@ license: MIT
 7b. **Router evals:** follow `references/route-check.md` on `<dir>`: it routes every `evals/router/cases.json` prompt through the router's routing table and compares with the expected skill (`ask` for ambiguous prompts); a mismatch is a release blocker.
 8. Audit reports: follow `references/check-report.md` on the report (every finding has Original and exact Corrected text).
 9. Third-party or downloaded extensions, and any outside text an extension will ship: follow `references/screen-text.md` on the folder (a manual read; the same recipe is how Claude screens untrusted WebFetch, WebSearch and Composio output; a flag means read that passage, a pass proves nothing).
+9a. **Agent-built pull request:** the merge gate (checks passed, review approved, scope matches the issue, human approver is not the requester): `aiaddon-maintain/references/factory-workflow.md`.
 10. After the user installs a new plugin version, tell them to restart Claude: a running session can keep the older cached skill text.
 
 ## Judgment checks
